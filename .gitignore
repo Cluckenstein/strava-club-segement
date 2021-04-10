@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 *.json
+main.py
 
 
 # C extensions
@@ -50,7 +51,6 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-main.py
 
 
 
