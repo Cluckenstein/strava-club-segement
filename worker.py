@@ -30,7 +30,7 @@ from bs4 import BeautifulSoup
 class leaderboard_pull(object):
     
     
-    def __init__(self, user, pwd, spreadsheet, time_frame = datetime.datetime(2001, 1, 1), time_strava = 'week'): 
+    def __init__(self, user, pwd, spreadsheet, time_frame = datetime.datetime(2001, 1, 1), time_strava = 'month'): 
         self.user = user
         self.pwd = pwd
         self.time_frame = time_frame

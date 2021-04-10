@@ -14,7 +14,5 @@ import json
 with open('secret_keys.json') as check:
   keys = json.load(check)
 
-pull = leaderboard_pull(keys['user'], keys['pwd'], keys['spreadsheet'])
-pull.update_board()
-
-
+pull = leaderboard_pull(keys['user'], keys['pwd'], keys['spreadsheet'], time_strava = 'month')
+pull.update_board() 
