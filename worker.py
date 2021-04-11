@@ -12,7 +12,7 @@ import time
 import os.path
 import pandas as pd 
 import numpy as np
-
+import json
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -50,6 +50,13 @@ class leaderboard_pull(object):
             self.segments = self.segments_id.copy()
         else:
             self.segments = {k:self.segments_id[k] for k in segments}
+            
+            
+        if type(time_strava) != str:
+            self.diff_filters = True
+            self.filters = {self.segments_id[k]: time_strava[k] for k in time_strava}
+        else:
+            self.diff_filters = False
         
         self.segment_range = {'9518185': {'m': 'M6:N41', 'w': 'K6:L41'}, #Berlingen
                               '4373308': {'m': 'G6:H41', 'w': 'E6:F41'}, #Ermatingen
@@ -90,51 +97,100 @@ class leaderboard_pull(object):
     def update_board(self):
         self.get_leaderboard()
         self.parse()
+        self.get_riders()
         for ort in self.segments:
             self.segment_id = self.segments[ort]
-            self.get_riders()
             self.get_segment_time()
-            self.make_leaderboard()
+            
+        self.make_json()
+        self.make_leaderboard()
+        
+        
+    def make_json(self):
+        rider_times = {rider: self.riders[rider] for rider in self.riders if len(self.riders[rider].keys())>2}
+        
+        try:
+            with open('best_times.json', 'r') as saver:
+                data = json.load(saver)
+                
+            new_times = {}
+            
+            both = set(rider_times).intersection(set(data))
+            
+            only_new = set(rider_times) - set(data)
+            only_old = set(data) - set(rider_times)
+            
+            for rider in list(only_new):
+                new_times[rider] = rider_times[rider]
+            for rider in list(only_old):
+                new_times[rider] = data[rider]
+                
+            for rider in list(both):
+                new_times[rider] = {'strava': rider_times[rider]['strava'], 'sex':rider_times[rider]['sex']}
+                for segment in [self.segments_id[k] for k in self.segments_id]:
+                    if segment in data[rider] and segment in rider_times[rider]:
+                        
+                        new_times[rider][segment] = min(data[rider][segment], rider_times[rider][segment])
+                        
+                        if data[rider][segment] < rider_times[rider][segment]:
+                            self.riders[rider][segment] = data[rider][segment] 
+                        
+                    elif segment in data[rider]:
+                        new_times[rider][segment] = data[rider][segment]
+                    elif segment in rider_times[rider]:
+                        new_times[rider][segment] = rider_times[rider][segment]
+             
+                
+        except:
+            new_times = rider_times
+            
+        with open('best_times.json', 'w') as saver:
+            json.dump(new_times, saver)
+        
         
         
         
     def make_leaderboard(self):
-        female = {self.riders[rider][self.segment_id]:rider for rider in self.riders if self.riders[rider]['sex']=='w' and self.segment_id in self.riders[rider]}
-        male = {self.riders[rider][self.segment_id]:rider for rider in self.riders if self.riders[rider]['sex']=='m' and self.segment_id in self.riders[rider]}
-        
-        items_f = female.items()
-        items_m = male.items()
-
-        sorted_f = sorted(items_f)
-        sorted_m = sorted(items_m)
-
-        values_f = []
-        values_m = []
-        
-        for i in range(len(sorted_f)):
-            values_f.append([sorted_f[i][1], self.make_time_string(sorted_f[i][0])])
+        for seg in self.segments:
+            self.segment_id = self.segments_id[seg]
+            female = {self.riders[rider][self.segment_id]:rider for rider in self.riders if self.riders[rider]['sex']=='w' and self.segment_id in self.riders[rider]}
+            male = {self.riders[rider][self.segment_id]:rider for rider in self.riders if self.riders[rider]['sex']=='m' and self.segment_id in self.riders[rider]}
             
-        for i in range(len(sorted_m)):
-            values_m.append([sorted_m[i][1], self.make_time_string(sorted_m[i][0])])
+            items_f = female.items()
+            items_m = male.items()
+    
+            sorted_f = sorted(items_f)
+            sorted_m = sorted(items_m)
+    
+            values_f = []
+            values_m = []
             
-        #clean and fill then 
-        for val in [[ [['']*2]*36, [['']*2]*36 ] , [values_f, values_m]]:
+            for i in range(len(sorted_f)):
+                values_f.append([sorted_f[i][1], self.make_time_string(sorted_f[i][0])])
+                
+            for i in range(len(sorted_m)):
+                values_m.append([sorted_m[i][1], self.make_time_string(sorted_m[i][0])])
+                
+            #clean and fill then 
+            for val in [[ [['']*2]*36, [['']*2]*36 ] , [values_f, values_m]]:
+            
+                request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
+                                                                             range=self.segment_range[self.segment_id]['w'], 
+                                                                             valueInputOption = 'RAW',
+                                                                             body=dict(
+                                                                                majorDimension='ROWS',
+                                                                                values=val[0]))
+                request.execute()
+                
+                request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
+                                                                             range=self.segment_range[self.segment_id]['m'], 
+                                                                             valueInputOption = 'RAW',
+                                                                             body=dict(
+                                                                                majorDimension='ROWS',
+                                                                                values=val[1]))
+                request.execute()
         
-            request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
-                                                                         range=self.segment_range[self.segment_id]['w'], 
-                                                                         valueInputOption = 'RAW',
-                                                                         body=dict(
-                                                                            majorDimension='ROWS',
-                                                                            values=val[0]))
-            request.execute()
-            
-            request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
-                                                                         range=self.segment_range[self.segment_id]['m'], 
-                                                                         valueInputOption = 'RAW',
-                                                                         body=dict(
-                                                                            majorDimension='ROWS',
-                                                                            values=val[1]))
-            request.execute()
+        
         
     @staticmethod
     def make_time_string(seconds):
@@ -153,7 +209,6 @@ class leaderboard_pull(object):
         return first + ':' + sec
         
     def get_segment_time(self):
-        #### FUNKTIONIERT AKTUELL NUR FALLS ES DIE BESTZEITEN DER FAHRER SIND ALSO DIE NEUENE ZEITEN SPIELEN KEINE ROLLE, DRIVER ANPASSEN
         #Strava Times
         for i in self.boards[self.segment_id].index:
             if self.boards[self.segment_id]['Name'][i] in self.riders and self.boards[self.segment_id]['Date'][i] >= self.time_frame:
@@ -236,7 +291,12 @@ class leaderboard_pull(object):
         time.sleep(2)
         
         for segment in self.segments:
-            
+            if self.diff_filters:
+                filter_all = self.time_strava[segment]
+
+            else:
+                filter_all = self.time_strava
+                
             seg_url = 'https://www.strava.com/segments/'+str(self.segments[segment])
             driver.get(seg_url)
 
@@ -258,7 +318,7 @@ class leaderboard_pull(object):
                        'year': "//*[@id='this-year']"}
             
             choosen_filter = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, filters[self.time_strava])))
+            EC.element_to_be_clickable((By.XPATH, filters[filter_all])))
             
             choosen_filter.click()
 
