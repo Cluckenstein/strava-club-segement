@@ -13,6 +13,22 @@ import json
 
 with open('secret_keys.json') as check:
   keys = json.load(check)
+  
+#possible segments 
+'Ermatingen'
+'Berlingen'
+'Steckborn'
+'Liebenfels'
+'Wartburg'
 
-pull = leaderboard_pull(keys['user'], keys['pwd'], keys['spreadsheet'], time_strava = 'month')
+#possible time filters 
+'month'
+'week'
+'all'
+'year'
+
+segments = ['Berlingen']
+time_strava = 'week'
+
+pull = leaderboard_pull(keys['user'], keys['pwd'], keys['spreadsheet'], time_strava = 'month', segments = segments)
 pull.update_board() 

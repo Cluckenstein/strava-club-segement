@@ -4,9 +4,8 @@ __pycache__/
 *$py.class
 
 *.json
-main.py
 
-.bashrc_conda
+*.bashrc_conda
 
 # C extensions
 *.so

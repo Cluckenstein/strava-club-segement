@@ -30,7 +30,7 @@ from bs4 import BeautifulSoup
 class leaderboard_pull(object):
     
     
-    def __init__(self, user, pwd, spreadsheet, time_frame = datetime.datetime(2001, 1, 1), time_strava = 'month'): 
+    def __init__(self, user, pwd, spreadsheet, time_frame = datetime.datetime(2001, 1, 1), time_strava = 'month', segments = None): 
         self.user = user
         self.pwd = pwd
         self.time_frame = time_frame
@@ -38,12 +38,18 @@ class leaderboard_pull(object):
         self.boards = {}
         self.riders = {}
         self.spreadsheet = spreadsheet
+        self.segments_id = {'Berlingen': '9518185',
+                             'Ermatingen': '4373308',
+                             'Wartburg': '13663639',
+                             'Steckborn': '7850497',
+                             'Liebenfels': '1651294'}
         
-        self.segments = {'Berlingen': '9518185',
-                         'Ermatingen': '4373308',
-                         'Wartburg': '13663639',
-                         'Steckborn': '7850497',
-                         'Liebenfels': '1651294'}
+        #segments list of the segments to be updated
+        
+        if not segments:
+            self.segments = self.segments_id.copy()
+        else:
+            self.segments = {k:self.segments_id[k] for k in segments}
         
         self.segment_range = {'9518185': {'m': 'M6:N41', 'w': 'K6:L41'}, #Berlingen
                               '4373308': {'m': 'G6:H41', 'w': 'E6:F41'}, #Ermatingen
