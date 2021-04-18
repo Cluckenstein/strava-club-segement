@@ -29,24 +29,36 @@ with open('secret_keys.json') as check:
 'year'
 
 if dt.datetime.now() < dt.datetime(2021, 4, 18, 23, 59):
-    segments = ['Ermatingen', 'Wartburg']
-    time_strava = {'Ermatingen':'week',
-                   'Wartburg':'year'}
+    segments = ['Ermatingen', 'Berlingen', 'Steckborn', 'Liebenfels', 'Wartburg']
+    time_strava = {'Berlingen':'week',
+                    'Ermatingen':'week',
+                    'Steckborn':'week',
+                    'Liebenfels':'week',
+                    'Wartburg':'week'}
 
 elif dt.datetime.now() < dt.datetime(2021, 4, 25, 23, 59):
-    segments = ['Berlingen', 'Wartburg']
+    segments = ['Ermatingen', 'Berlingen', 'Steckborn', 'Liebenfels', 'Wartburg']
     time_strava = {'Berlingen':'week',
-                   'Wartburg':'year'}
+                    'Ermatingen':'week',
+                    'Steckborn':'week',
+                    'Liebenfels':'week',
+                    'Wartburg':'week'}
     
 elif dt.datetime.now() < dt.datetime(2021, 5, 2, 23, 59):
-    segments = ['Steckborn', 'Wartburg']
-    time_strava = {'Steckborn':'week',
-                   'Wartburg':'year'}
+    segments = ['Ermatingen', 'Berlingen', 'Steckborn', 'Liebenfels', 'Wartburg']
+    time_strava = {'Berlingen':'week',
+                    'Ermatingen':'week',
+                    'Steckborn':'week',
+                    'Liebenfels':'week',
+                    'Wartburg':'week'}
     
 elif dt.datetime.now() < dt.datetime(2021, 5, 9, 23, 59):
-    segments = ['Liebenfels', 'Wartburg']
-    time_strava = {'Liebenfels':'week',
-                   'Wartburg':'year'}
+    segments = ['Ermatingen', 'Berlingen', 'Steckborn', 'Liebenfels', 'Wartburg']
+    time_strava = {'Berlingen':'week',
+                    'Ermatingen':'week',
+                    'Steckborn':'week',
+                    'Liebenfels':'week',
+                    'Wartburg':'week'}
     
 else:
     segments = []
@@ -54,3 +66,4 @@ else:
 
 pull = leaderboard_pull(keys['user'], keys['pwd'], keys['spreadsheet'], time_strava = time_strava, segments = segments)
 pull.update_board() 
+print('success')
