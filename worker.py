@@ -14,7 +14,7 @@ import pandas as pd
 pd.options.mode.chained_assignment = None 
 import numpy as np
 import json
-import subprocess
+import requests
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -99,15 +99,8 @@ class leaderboard_pull(object):
         
         
     def update_board(self):
-        host = 'www.strava.com'
-        ping = subprocess.Popen(
-            ["/sbin/ping", "-c", "4", host],
-            stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE)
-        
-        out, _ = ping.communicate()
-        
-        if not "Request timeout" in str(out):
+        try:
+            requests.get("https://www.strava.com", timeout=1.2).elapsed.total_seconds()
             self.get_leaderboard()
             self.parse()
             self.get_riders()
@@ -117,9 +110,8 @@ class leaderboard_pull(object):
                 
             self.make_json()
             self.make_leaderboard()
-            
-        else:
-            print("strava ping timed out, no update on leaderboard")
+        except:
+            print("strava timed out, no update on leaderboard")
         
         
     def make_json(self):
@@ -209,14 +201,14 @@ class leaderboard_pull(object):
                 request.execute()
                 
                 
-            request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
-                                                                             range='O2:P2', 
-                                                                             valueInputOption = 'USER_ENTERED',
-                                                                             body=dict(
-                                                                                majorDimension='ROWS',
-                                                                                values=[['=NOW()']]))
-            request.execute()
-        
+        request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
+                                                                         range='O2:P2', 
+                                                                         valueInputOption = 'USER_ENTERED',
+                                                                         body=dict(
+                                                                            majorDimension='ROWS',
+                                                                            values=[['=NOW()']]))
+        request.execute()
+    
         
         
     @staticmethod
