@@ -34,7 +34,7 @@ from bs4 import BeautifulSoup
 class leaderboard_pull(object):
     
     
-    def __init__(self, user, pwd, spreadsheet, time_frame = datetime.datetime(2001, 1, 1), time_strava = 'month', segments = None): 
+    def __init__(self, user, pwd, spreadsheet, time_frame = datetime.datetime(2001, 1, 1), time_strava = 'month', segments = []): 
         self.user = user
         self.pwd = pwd
         self.time_frame = time_frame
@@ -50,10 +50,7 @@ class leaderboard_pull(object):
         
         #segments list of the segments to be updated
         
-        if not segments:
-            self.segments = self.segments_id.copy()
-        else:
-            self.segments = {k:self.segments_id[k] for k in segments}
+        self.segments = {k:self.segments_id[k] for k in segments}
             
             
         if type(time_strava) != str:
@@ -62,17 +59,18 @@ class leaderboard_pull(object):
         else:
             self.diff_filters = False
         
-        self.segment_range = {'9518185': {'m': 'M6:N41', 'w': 'K6:L41'}, #Berlingen
-                              '4373308': {'m': 'G6:H41', 'w': 'E6:F41'}, #Ermatingen
-                              '13663639': {'m': 'AE6:AF41', 'w': 'AC6:AD41'}, #Wartburg
-                              '7850497': {'m': 'S6:T41', 'w': 'Q6:R41'}, #Steckborn
-                              '1651294': {'m': 'Y6:Z41', 'w': 'W6:X41'} }#Liebenfels
+        self.segment_range = {'9518185': {'m': 'M6:N46', 'w': 'K6:L46'}, #Berlingen
+                              '4373308': {'m': 'G6:H46', 'w': 'E6:F46'}, #Ermatingen
+                              '13663639': {'m': 'AE6:AF46', 'w': 'AC6:AD46'}, #Wartburg
+                              '7850497': {'m': 'S6:T46', 'w': 'Q6:R46'}, #Steckborn
+                              '1651294': {'m': 'Y6:Z46', 'w': 'W6:X46'},#Liebenfels
+                              'gesamt': {'m': 'AK6:AL46', 'w': 'AI6:AJ46'} }
         
-        self.manual_range = {'9518185': 'O6:P41', #Berlingen
-                              '4373308': 'I6:J41', #Ermatingen
-                              '13663639': 'AG6:AH41', #Wartburg
-                              '7850497': 'U6:V41', #Steckborn
-                              '1651294': 'AA6:AB41' }#Liebenfels
+        self.manual_range = {'9518185': 'O6:P46', #Berlingen
+                              '4373308': 'I6:J46', #Ermatingen
+                              '13663639': 'AG6:AH46', #Wartburg
+                              '7850497': 'U6:V46', #Steckborn
+                              '1651294': 'AA6:AB46' }#Liebenfels
         
         
         
@@ -100,7 +98,21 @@ class leaderboard_pull(object):
         
     def update_board(self):
         try:
-            requests.get("https://www.strava.com", timeout=1.2).elapsed.total_seconds()
+            options = Options()
+            options.headless = True
+            
+            driver = webdriver.Chrome(options=options, executable_path='/Users/maximilianreihn/Downloads/chromedriver')
+            url = 'https://status.strava.com'     
+            driver.get(url)
+            html=driver.page_source
+            
+        except:
+            html = 'Major Outage Major Outage'
+            
+        if html.count('Major Outage') > 1:
+            print("strava timed out, no update on leaderboard")
+        else:
+            print('strava is responding normally')
             self.get_leaderboard()
             self.parse()
             self.get_riders()
@@ -110,8 +122,7 @@ class leaderboard_pull(object):
                 
             self.make_json()
             self.make_leaderboard()
-        except:
-            print("strava timed out, no update on leaderboard")
+
         
         
     def make_json(self):
@@ -162,6 +173,8 @@ class leaderboard_pull(object):
         
     def make_leaderboard(self):
         print('creating leaderboard for sheet')
+
+
         for seg in self.segments:
             print('filling out ',seg)
             self.segment_id = self.segments_id[seg]
@@ -171,15 +184,22 @@ class leaderboard_pull(object):
             
             sorted_f = sorted(female.items(), key=lambda x: x[1])
             sorted_m = sorted(male.items(), key=lambda x: x[1])
+            
+            fastest_f = min([female[k] for k in female])
+            fastest_m = min([male[k] for k in male])
 
             values_f = []
             values_m = []
             
             for i in range(len(sorted_f)):
-                values_f.append([sorted_f[i][0], self.make_time_string(sorted_f[i][1])])
+                time_points = self.make_time_string(sorted_f[i][1])
+                time_points += ' (+'+ str(np.round( (sorted_f[i][1]/fastest_f - 1)* 100 , 1)) + '%)'         
+                values_f.append([sorted_f[i][0], time_points])
                 
             for i in range(len(sorted_m)):
-                values_m.append([sorted_m[i][0], self.make_time_string(sorted_m[i][1])])
+                time_points = self.make_time_string(sorted_m[i][1])
+                time_points += ' (+'+ str(np.round( (sorted_m[i][1]/fastest_m -1)*100, 1)) + '%)'
+                values_m.append([sorted_m[i][0], time_points])
                 
             #clean and fill then 
             for val in [[ [['']*2]*36, [['']*2]*36 ] , [values_f, values_m]]:
@@ -199,14 +219,83 @@ class leaderboard_pull(object):
                                                                                 majorDimension='ROWS',
                                                                                 values=val[1]))
                 request.execute()
+       
+
+        quickest = {}
+        for seg in self.segments_id:
+            self.segment_id = self.segments_id[seg]
+            
+            female = {rider:self.riders[rider][self.segment_id] for rider in self.riders if self.riders[rider]['sex']=='w' and self.segment_id in self.riders[rider]}
+            male = {rider:self.riders[rider][self.segment_id] for rider in self.riders if self.riders[rider]['sex']=='m' and self.segment_id in self.riders[rider]}
+            
+            sorted_f = sorted(female.items(), key=lambda x: x[1])
+            sorted_m = sorted(male.items(), key=lambda x: x[1])
+            
+            quickest[self.segment_id] = {'w': min([female[k] for k in female]), 'm':min([male[k] for k in male])}
+  
+         
+        gesamt_punkte_f = {}
+        gesamt_punkte_m = {}
+        for rider in self.riders:
+            #warthburg: '13663639'
+            
+            if len(list(self.riders[rider].keys())) > 4:
+                points = []
+                
+                for seg in self.segments_id:
+                    if self.segments_id[seg] in self.riders[rider]:
+                        points.append(np.round((self.riders[rider][self.segments_id[seg]]/ quickest[self.segments_id[seg]][self.riders[rider]['sex']] -1 )*100, 1 ))
+                        
+                best_3 = np.sort(points)[:3]
+                gesamt = sum(best_3)
+                
+                if self.riders[rider]['sex'] == 'w':
+                    gesamt_punkte_f[rider] = gesamt
+                else:
+                    gesamt_punkte_m[rider] = gesamt
+                
+
+        sorted_f = sorted(gesamt_punkte_f.items(), key=lambda x: x[1])
+        sorted_m = sorted(gesamt_punkte_m.items(), key=lambda x: x[1])
+        
+        values_f = []
+        values_m = []
+        
+        for i in range(len(sorted_f)):        
+            values_f.append([sorted_f[i][0], sorted_f[i][1]])
+            
+        for i in range(len(sorted_m)):
+            values_m.append([sorted_m[i][0], sorted_m[i][1]])
+            
+        #clean and fill then 
+        for val in [[ [['']*2]*36, [['']*2]*36 ] , [values_f, values_m]]:
+        
+            request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
+                                                                         range=self.segment_range['gesamt']['w'], 
+                                                                         valueInputOption = 'RAW',
+                                                                         body=dict(
+                                                                            majorDimension='ROWS',
+                                                                            values=val[0]))
+            request.execute()
+            
+            request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
+                                                                         range=self.segment_range['gesamt']['m'], 
+                                                                         valueInputOption = 'RAW',
+                                                                         body=dict(
+                                                                            majorDimension='ROWS',
+                                                                            values=val[1]))
+            request.execute()
+            
+                
+                
                 
                 
         request = self.google_service.spreadsheets().values().update(spreadsheetId=self.spreadsheet,
                                                                          range='O2:P2', 
-                                                                         valueInputOption = 'USER_ENTERED',
+                                                                         valueInputOption = 'RAW',
                                                                          body=dict(
                                                                             majorDimension='ROWS',
-                                                                            values=[['=NOW()']]))
+                                                                            values=[[str(datetime.datetime.now())[:-7]]]))
         request.execute()
     
         
@@ -259,7 +348,7 @@ class leaderboard_pull(object):
     def get_riders(self):
         print('getting riders')
         # The ID and range of a sample spreadsheet.
-        range_riders = 'A6:D41'
+        range_riders = 'A6:D46'
         
         # Call the Sheets API
         sheet = self.google_service.spreadsheets()

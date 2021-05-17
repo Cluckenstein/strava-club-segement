@@ -61,9 +61,11 @@ elif dt.datetime.now() < dt.datetime(2021, 5, 9, 23, 59):
                     'Wartburg':'week'}
     
 else:
+    print('no segments to do ')
     segments = []
     time_strava = 'week'  
 
+
 pull = leaderboard_pull(keys['user'], keys['pwd'], keys['spreadsheet'], time_strava = time_strava, segments = segments)
 pull.update_board() 
-print('success')
+print('success on scirpt')
